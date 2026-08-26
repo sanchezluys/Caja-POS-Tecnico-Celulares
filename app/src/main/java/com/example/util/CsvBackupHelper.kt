@@ -34,9 +34,9 @@ object CsvBackupHelper {
 
             // 1. Config
             append("$SECTION_CONFIG\n")
-            append("id,workshopName,technicianName,phone,address,taxId,receiptFooter,currency,thousandSeparator,isConfigured\n")
+            append("id,workshopName,technicianName,phone,address,taxId,receiptFooter,showWarrantyTerms,currency,thousandSeparator,isConfigured\n")
             if (config != null) {
-                append("${config.id},\"${escapeCsv(config.workshopName)}\",\"${escapeCsv(config.technicianName)}\",\"${escapeCsv(config.phone)}\",\"${escapeCsv(config.address)}\",\"${escapeCsv(config.taxId)}\",\"${escapeCsv(config.receiptFooter)}\",\"${escapeCsv(config.currency)}\",\"${escapeCsv(config.thousandSeparator)}\",${config.isConfigured}\n")
+                append("${config.id},\"${escapeCsv(config.workshopName)}\",\"${escapeCsv(config.technicianName)}\",\"${escapeCsv(config.phone)}\",\"${escapeCsv(config.address)}\",\"${escapeCsv(config.taxId)}\",\"${escapeCsv(config.receiptFooter)}\",${config.showWarrantyTerms},\"${escapeCsv(config.currency)}\",\"${escapeCsv(config.thousandSeparator)}\",${config.isConfigured}\n")
             }
             append("\n")
 
@@ -99,9 +99,12 @@ object CsvBackupHelper {
                 when (currentSection) {
                     SECTION_CONFIG -> {
                         if (tokens.size >= 8) {
+                            val has11Cols = tokens.size >= 11
                             val hasSeparatorCol = tokens.size >= 10
-                            val sepVal = if (hasSeparatorCol) tokens.getOrElse(8) { "DOT" } else "DOT"
-                            val isConfVal = if (hasSeparatorCol) tokens.getOrElse(9) { "true" } else tokens.getOrElse(8) { "true" }
+                            val showTerms = if (has11Cols) tokens[7].toBooleanStrictOrNull() ?: true else true
+                            val currVal = if (has11Cols) tokens.getOrElse(8) { "COP" } else tokens.getOrElse(7) { "COP" }
+                            val sepVal = if (has11Cols) tokens.getOrElse(9) { "DOT" } else if (hasSeparatorCol) tokens.getOrElse(8) { "DOT" } else "DOT"
+                            val isConfVal = if (has11Cols) tokens.getOrElse(10) { "true" } else if (hasSeparatorCol) tokens.getOrElse(9) { "true" } else tokens.getOrElse(8) { "true" }
                             config = WorkshopConfig(
                                 id = tokens[0].toIntOrNull() ?: 1,
                                 workshopName = tokens.getOrElse(1) { "" },
@@ -110,7 +113,8 @@ object CsvBackupHelper {
                                 address = tokens.getOrElse(4) { "" },
                                 taxId = tokens.getOrElse(5) { "" },
                                 receiptFooter = tokens.getOrElse(6) { "" },
-                                currency = tokens.getOrElse(7) { "COP" },
+                                showWarrantyTerms = showTerms,
+                                currency = if (currVal.isNotBlank()) currVal else "COP",
                                 thousandSeparator = if (sepVal.isNotBlank()) sepVal else "DOT",
                                 isConfigured = isConfVal.toBoolean()
                             )

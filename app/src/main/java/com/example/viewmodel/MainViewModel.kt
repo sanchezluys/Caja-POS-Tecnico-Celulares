@@ -209,6 +209,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun updateWarrantyTerms(showTerms: Boolean, termsText: String, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            val current = repository.getConfigDirect() ?: WorkshopConfig()
+            repository.saveConfig(
+                current.copy(
+                    showWarrantyTerms = showTerms,
+                    receiptFooter = termsText.trim()
+                )
+            )
+            onDone()
+        }
+    }
+
     fun createOrder(
         clientName: String,
         clientPhone: String,
@@ -246,6 +259,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun updateOrder(order: RepairOrder) {
         viewModelScope.launch {
             repository.updateOrder(order)
+        }
+    }
+
+    fun updateOrderPhotos(orderId: Long, photoUri: String?) {
+        viewModelScope.launch {
+            val current = repository.getOrderByIdDirect(orderId) ?: return@launch
+            repository.updateOrder(current.copy(photoUri = photoUri))
         }
     }
 

@@ -50,4 +50,18 @@ data class RepairOrder(
     val warrantyCost: Double = 0.0,
     val isClosed: Boolean = false,
     val finalNotificationSent: Boolean = false
-)
+) {
+    fun getPhotoList(): List<String> {
+        if (photoUri.isNullOrBlank()) return emptyList()
+        return photoUri.split("|||").map { it.trim() }.filter { it.isNotEmpty() }
+    }
+
+    companion object {
+        const val PHOTO_DELIMITER = "|||"
+
+        fun joinPhotos(photos: List<String>): String? {
+            val clean = photos.map { it.trim() }.filter { it.isNotEmpty() }
+            return if (clean.isEmpty()) null else clean.joinToString(PHOTO_DELIMITER)
+        }
+    }
+}

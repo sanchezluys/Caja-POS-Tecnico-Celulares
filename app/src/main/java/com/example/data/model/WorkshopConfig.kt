@@ -11,7 +11,8 @@ data class WorkshopConfig(
     val phone: String = "",
     val address: String = "",
     val taxId: String = "", // RIF / RUT / DNI / NIF
-    val receiptFooter: String = "Garantía de 30 días en mano de obra y repuestos instalados por fallas directas de fábrica.",
+    val receiptFooter: String = "Garantía de 30 días en servicio técnico y repuestos instalados por defectos de fábrica. No cubre humedad ni golpes posteriores.",
+    val showWarrantyTerms: Boolean = true,
     val currency: String = "COP",
     val thousandSeparator: String = "DOT", // "DOT", "COMMA", "NONE"
     val isConfigured: Boolean = false,

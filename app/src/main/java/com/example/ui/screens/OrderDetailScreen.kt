@@ -1,8 +1,14 @@
 package com.example.ui.screens
 
+import android.Manifest
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.net.toUri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,6 +23,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,10 +32,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
@@ -38,6 +48,7 @@ import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.MonetizationOn
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Security
@@ -53,6 +64,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -86,6 +98,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import coil.compose.AsyncImage
 import com.example.data.model.InventoryPart
 import com.example.data.model.OrderItemPart
@@ -96,6 +110,7 @@ import com.example.util.CostValidator
 import com.example.util.CurrencyFormatHelper
 import com.example.util.PdfReceiptGenerator
 import com.example.util.WhatsAppHelper
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -114,7 +129,8 @@ fun OrderDetailScreen(
     onRemovePart: (OrderItemPart) -> Unit,
     onDeliverAndClose: (paymentMethod: String, amountPaid: Double) -> Unit,
     onCreateWarrantyOrder: (reportedIssue: String, warrantyCost: Double, conditionNotes: String) -> Unit,
-    onDeleteOrder: () -> Unit
+    onDeleteOrder: () -> Unit,
+    onUpdateOrderPhotos: ((String?) -> Unit)? = null
 ) {
     val context = LocalContext.current
     val currency = config.currency.ifBlank { "$" }
@@ -131,7 +147,67 @@ fun OrderDetailScreen(
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showReceiptGeneratedDialog by remember { mutableStateOf(false) }
     var generatedPdfUri by remember { mutableStateOf<Uri?>(null) }
-    var showImageFullscreen by remember { mutableStateOf(false) }
+    var fullscreenPhotoIndex by remember { mutableStateOf<Int?>(null) }
+
+    val photoList = remember(order.photoUri) { order.getPhotoList() }
+
+    // Multiple Photo picker launcher (Gallery)
+    val multiplePhotoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        val newUris = uris.map { it.toString() }.filter { it.isNotBlank() }
+        if (newUris.isNotEmpty()) {
+            val updated = (photoList + newUris).distinct()
+            onUpdateOrderPhotos?.invoke(RepairOrder.joinPhotos(updated))
+            Toast.makeText(context, "${newUris.size} foto(s) agregada(s)", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Camera Capture launcher
+    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
+
+    val takePictureLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success: Boolean ->
+        if (success && tempCameraUri != null) {
+            val updated = (photoList + tempCameraUri.toString()).distinct()
+            tempCameraUri = null
+            onUpdateOrderPhotos?.invoke(RepairOrder.joinPhotos(updated))
+            Toast.makeText(context, "Foto capturada y guardada", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            try {
+                val photoFile = File.createTempFile("order_${order.id}_${System.currentTimeMillis()}_", ".jpg", context.cacheDir)
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
+                tempCameraUri = uri
+                takePictureLauncher.launch(uri)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error al abrir la cámara: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            Toast.makeText(context, "Se requiere permiso de cámara", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val launchCamera: () -> Unit = {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            try {
+                val photoFile = File.createTempFile("order_${order.id}_${System.currentTimeMillis()}_", ".jpg", context.cacheDir)
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", photoFile)
+                tempCameraUri = uri
+                takePictureLauncher.launch(uri)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Error al abrir la cámara: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+        }
+    }
 
     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 
@@ -437,7 +513,7 @@ fun OrderDetailScreen(
 
                             IconButton(
                                 onClick = {
-                                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${order.clientPhone}"))
+                                    val intent = Intent(Intent.ACTION_DIAL, "tel:${order.clientPhone}".toUri())
                                     context.startActivity(intent)
                                 }
                             ) {
@@ -502,42 +578,162 @@ fun OrderDetailScreen(
                         }
                     }
 
-                    // Photo Evidence Thumbnail if present
-                    if (order.photoUri != null) {
-                        Spacer(modifier = Modifier.height(12.dp))
+                    // Photo Evidence Section (Multiple Photos)
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Text(
                             text = "Evidencia Fotográfica:",
                             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
                         )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(140.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp))
-                                .clickable { showImageFullscreen = true }
-                        ) {
-                            AsyncImage(
-                                model = order.photoUri,
-                                contentDescription = "Evidencia fotográfica",
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.matchParentSize()
-                            )
+                        if (photoList.isNotEmpty()) {
                             Surface(
-                                color = Color.Black.copy(alpha = 0.6f),
-                                shape = RoundedCornerShape(4.dp),
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .padding(8.dp)
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                                shape = RoundedCornerShape(8.dp)
                             ) {
                                 Text(
-                                    text = "Toca para ampliar",
-                                    color = Color.White,
-                                    fontSize = 10.sp,
+                                    text = "${photoList.size} ${if (photoList.size == 1) "foto" else "fotos"}",
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
                             }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    if (photoList.isNotEmpty()) {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            itemsIndexed(photoList) { index, uriStr ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(110.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .border(1.5.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp))
+                                        .clickable { fullscreenPhotoIndex = index }
+                                ) {
+                                    AsyncImage(
+                                        model = uriStr,
+                                        contentDescription = "Foto ${index + 1}",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.matchParentSize()
+                                    )
+                                    Surface(
+                                        color = Color.Black.copy(alpha = 0.7f),
+                                        shape = RoundedCornerShape(bottomStart = 8.dp),
+                                        modifier = Modifier.align(Alignment.BottomStart)
+                                    ) {
+                                        Text(
+                                            text = "#${index + 1}",
+                                            color = Color.White,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Shortcut card to add more
+                            if (!order.isClosed && onUpdateOrderPhotos != null) {
+                                item {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(110.dp)
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .border(1.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), RoundedCornerShape(10.dp))
+                                            .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f))
+                                            .clickable { launchCamera() },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Column(
+                                            horizontalAlignment = Alignment.CenterHorizontally,
+                                            verticalArrangement = Arrangement.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.CameraAlt,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            Spacer(modifier = Modifier.height(2.dp))
+                                            Text(
+                                                text = "+ Foto",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if (!order.isClosed && onUpdateOrderPhotos != null) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilledTonalButton(
+                                    onClick = { launchCamera() },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("+ Cámara", fontSize = 12.sp)
+                                }
+                                FilledTonalButton(
+                                    onClick = { multiplePhotoPickerLauncher.launch("image/*") },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("+ Galería", fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    } else {
+                        // Empty photo state with add options
+                        if (!order.isClosed && onUpdateOrderPhotos != null) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { launchCamera() },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Tomar Foto", fontSize = 12.sp)
+                                }
+                                OutlinedButton(
+                                    onClick = { multiplePhotoPickerLauncher.launch("image/*") },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Icon(Icons.Default.PhotoLibrary, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Galería", fontSize = 12.sp)
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = "Sin evidencia fotográfica registrada.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
@@ -820,22 +1016,124 @@ fun OrderDetailScreen(
         }
     }
 
-    // Fullscreen Image Dialog
-    if (showImageFullscreen && order.photoUri != null) {
-        Dialog(onDismissRequest = { showImageFullscreen = false }) {
+    // Fullscreen Photo Viewer Dialog
+    if (fullscreenPhotoIndex != null && fullscreenPhotoIndex!! in photoList.indices) {
+        val currentIndex = fullscreenPhotoIndex!!
+        Dialog(onDismissRequest = { fullscreenPhotoIndex = null }) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.9f))
-                    .clickable { showImageFullscreen = false },
+                    .background(Color.Black.copy(alpha = 0.95f)),
                 contentAlignment = Alignment.Center
             ) {
-                AsyncImage(
-                    model = order.photoUri,
-                    contentDescription = "Foto ampliada",
-                    modifier = Modifier.fillMaxWidth(0.95f),
-                    contentScale = ContentScale.Fit
-                )
+                Column(
+                    modifier = Modifier.fillMaxSize(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Header Bar
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Foto ${currentIndex + 1} de ${photoList.size}",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp
+                        )
+                        Row {
+                            if (!order.isClosed && onUpdateOrderPhotos != null) {
+                                IconButton(
+                                    onClick = {
+                                        val updated = photoList.toMutableList().apply { removeAt(currentIndex) }
+                                        onUpdateOrderPhotos(RepairOrder.joinPhotos(updated))
+                                        if (updated.isEmpty()) {
+                                            fullscreenPhotoIndex = null
+                                        } else if (currentIndex >= updated.size) {
+                                            fullscreenPhotoIndex = updated.size - 1
+                                        }
+                                        Toast.makeText(context, "Foto eliminada", Toast.LENGTH_SHORT).show()
+                                    }
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Eliminar foto",
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            }
+                            IconButton(onClick = { fullscreenPhotoIndex = null }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Cerrar",
+                                    tint = Color.White
+                                )
+                            }
+                        }
+                    }
+
+                    // Main Photo Display
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        AsyncImage(
+                            model = photoList[currentIndex],
+                            contentDescription = "Foto ampliada ${currentIndex + 1}",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Fit
+                        )
+                    }
+
+                    // Footer Navigation Bar
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = {
+                                if (currentIndex > 0) fullscreenPhotoIndex = currentIndex - 1
+                            },
+                            enabled = currentIndex > 0
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Foto anterior",
+                                tint = if (currentIndex > 0) Color.White else Color.Gray
+                            )
+                        }
+
+                        Text(
+                            text = "${currentIndex + 1} / ${photoList.size}",
+                            color = Color.LightGray,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+
+                        IconButton(
+                            onClick = {
+                                if (currentIndex < photoList.size - 1) fullscreenPhotoIndex = currentIndex + 1
+                            },
+                            enabled = currentIndex < photoList.size - 1
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "Foto siguiente",
+                                tint = if (currentIndex < photoList.size - 1) Color.White else Color.Gray
+                            )
+                        }
+                    }
+                }
             }
         }
     }

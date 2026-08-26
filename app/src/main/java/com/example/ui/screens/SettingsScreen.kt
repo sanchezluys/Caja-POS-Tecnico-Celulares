@@ -35,7 +35,10 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -47,10 +50,13 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,6 +71,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.BuildConfig
 import com.example.data.model.WorkshopConfig
 
 @Composable
@@ -73,11 +80,21 @@ fun SettingsScreen(
     onExportBackup: (Context, onResult: (Uri?) -> Unit) -> Unit,
     onImportBackup: (Context, Uri, onResult: (Boolean, String) -> Unit) -> Unit,
     onFactoryReset: (onComplete: () -> Unit) -> Unit,
+    onUpdateWarrantyTerms: (showTerms: Boolean, termsText: String) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     var showResetDialog by remember { mutableStateOf(false) }
     var isExporting by remember { mutableStateOf(false) }
+    var showWarrantyTerms by remember(config.showWarrantyTerms) { mutableStateOf(config.showWarrantyTerms) }
+    var warrantyTermsText by remember(config.receiptFooter) { mutableStateOf(config.receiptFooter) }
+    var isSavingWarranty by remember { mutableStateOf(false) }
+
+    val hasWarrantyChanges by remember(showWarrantyTerms, warrantyTermsText, config.showWarrantyTerms, config.receiptFooter) {
+        derivedStateOf {
+            showWarrantyTerms != config.showWarrantyTerms || warrantyTermsText.trim() != config.receiptFooter.trim()
+        }
+    }
 
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -233,6 +250,131 @@ fun SettingsScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 11.sp
                 )
+            }
+        }
+
+        // Section: Warranty Terms & Conditions (Editable & Toggleable)
+        Card(
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.VerifiedUser,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "TÉRMINOS Y CLÁUSULA DE GARANTÍA",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+
+                    Switch(
+                        checked = showWarrantyTerms,
+                        onCheckedChange = { showWarrantyTerms = it },
+                        modifier = Modifier.testTag("switch_show_warranty_terms")
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = if (showWarrantyTerms)
+                        "La cláusula de garantía se encuentra ACTIVA y se imprimirá en los recibos PDF generados."
+                    else
+                        "La cláusula de garantía se encuentra DESACTIVADA. Los recibos PDF se emitirán sin el bloque de términos de garantía.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (showWarrantyTerms) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                    fontSize = 12.sp
+                )
+
+                if (showWarrantyTerms) {
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    OutlinedTextField(
+                        value = warrantyTermsText,
+                        onValueChange = { warrantyTermsText = it },
+                        label = { Text("Texto de la Cláusula de Garantía") },
+                        placeholder = { Text("Ej: Garantía de 30 días en servicio técnico y repuestos instalados por defectos de fábrica...") },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("tf_warranty_terms_text"),
+                        minLines = 3,
+                        maxLines = 5,
+                        shape = RoundedCornerShape(10.dp),
+                        supportingText = {
+                            Text(
+                                text = "${warrantyTermsText.length} caracteres",
+                                style = MaterialTheme.typography.labelSmall
+                            )
+                        }
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(
+                            onClick = {
+                                warrantyTermsText = "Garantía de 30 días en servicio técnico y repuestos instalados por defectos de fábrica. No cubre humedad ni golpes posteriores."
+                            }
+                        ) {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Restablecer sugerido", fontSize = 12.sp)
+                        }
+
+                        Button(
+                            onClick = {
+                                isSavingWarranty = true
+                                onUpdateWarrantyTerms(showWarrantyTerms, warrantyTermsText)
+                                isSavingWarranty = false
+                                Toast.makeText(context, "Términos de garantía actualizados", Toast.LENGTH_SHORT).show()
+                            },
+                            enabled = hasWarrantyChanges,
+                            shape = RoundedCornerShape(10.dp),
+                            modifier = Modifier.testTag("btn_save_warranty_terms")
+                        ) {
+                            Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("Guardar Cambios", fontSize = 12.sp)
+                        }
+                    }
+                } else {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Button(
+                        onClick = {
+                            isSavingWarranty = true
+                            onUpdateWarrantyTerms(false, warrantyTermsText)
+                            isSavingWarranty = false
+                            Toast.makeText(context, "Cláusula de garantía desactivada", Toast.LENGTH_SHORT).show()
+                        },
+                        enabled = hasWarrantyChanges,
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier
+                            .align(Alignment.End)
+                            .testTag("btn_save_warranty_terms_disabled")
+                    ) {
+                        Icon(Icons.Default.Save, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Guardar Estado", fontSize = 12.sp)
+                    }
+                }
             }
         }
 
@@ -400,7 +542,7 @@ fun SettingsScreen(
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text(
-                        text = "V1.0.0 Agosto 2026 by sanchezluys@gmail.com",
+                        text = "V${BuildConfig.VERSION_NAME} Agosto 2026 by sanchezluys@gmail.com",
                         style = MaterialTheme.typography.bodySmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp

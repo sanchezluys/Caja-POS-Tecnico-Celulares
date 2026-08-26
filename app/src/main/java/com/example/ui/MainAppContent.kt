@@ -133,6 +133,9 @@ fun MainAppContent(
                     viewModel.deleteOrder(selectedOrder.id) {
                         Toast.makeText(context, "Orden eliminada", Toast.LENGTH_SHORT).show()
                     }
+                },
+                onUpdateOrderPhotos = { updatedUri ->
+                    viewModel.updateOrderPhotos(selectedOrder.id, updatedUri)
                 }
             )
             return
@@ -169,18 +172,24 @@ fun MainAppContent(
                     }
                 },
                 actions = {
+                    val currentTabIcon = when (currentTab) {
+                        MainTab.ORDERS -> Icons.Filled.PhoneAndroid
+                        MainTab.INVENTORY -> Icons.Filled.Inventory2
+                        MainTab.REPORTS -> Icons.Filled.Assessment
+                        MainTab.SETTINGS -> Icons.Filled.Settings
+                    }
                     Box(
                         modifier = Modifier
                             .padding(end = 12.dp)
                             .size(38.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                            .background(MaterialTheme.colorScheme.primaryContainer),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Perfil",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            imageVector = currentTabIcon,
+                            contentDescription = currentTab.title,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -347,6 +356,9 @@ fun MainAppContent(
                         },
                         onFactoryReset = { callback ->
                             viewModel.factoryReset(callback)
+                        },
+                        onUpdateWarrantyTerms = { show, text ->
+                            viewModel.updateWarrantyTerms(show, text)
                         }
                     )
                 }

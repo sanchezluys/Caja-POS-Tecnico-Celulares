@@ -3,6 +3,7 @@ package com.example.util
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.core.net.toUri
 import com.example.data.model.RepairOrder
 import com.example.data.model.WorkshopConfig
 import java.net.URLEncoder
@@ -119,14 +120,14 @@ object WhatsAppHelper {
         }
 
         val intent = Intent(Intent.ACTION_VIEW).apply {
-            data = Uri.parse(url)
+            data = url.toUri()
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         try {
             context.startActivity(intent)
         } catch (e: Exception) {
             // If browser or whatsapp not directly opened, generic view
-            val genericIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            val genericIntent = Intent(Intent.ACTION_VIEW, url.toUri())
             context.startActivity(Intent.createChooser(genericIntent, "Abrir WhatsApp"))
         }
     }

@@ -1,6 +1,7 @@
 package com.example.util
 
 import android.content.Context
+import androidx.core.content.edit
 
 object PhoneCatalogHelper {
 
@@ -69,6 +70,6 @@ object PhoneCatalogHelper {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         val current = prefs.getStringSet(KEY_CUSTOM_BRANDS, emptySet())?.toMutableSet() ?: mutableSetOf()
         current.add(clean)
-        prefs.edit().putStringSet(KEY_CUSTOM_BRANDS, current).apply()
+        prefs.edit { putStringSet(KEY_CUSTOM_BRANDS, current) }
     }
 }

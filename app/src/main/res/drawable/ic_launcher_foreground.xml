@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/ic_launcher_techfix_1787666699469"
+        android:drawable="@drawable/app_logo_techfix"
         android:gravity="center" />
 </layer-list>

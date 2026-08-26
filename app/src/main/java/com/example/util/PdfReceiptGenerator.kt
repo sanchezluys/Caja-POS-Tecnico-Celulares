@@ -8,6 +8,7 @@ import android.graphics.RectF
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import androidx.core.content.FileProvider
+import androidx.core.graphics.toColorInt
 import com.example.data.model.OrderItemPart
 import com.example.data.model.RepairOrder
 import com.example.data.model.WorkshopConfig
@@ -39,7 +40,7 @@ object PdfReceiptGenerator {
             val currency = config.currency.ifBlank { "$" }
 
             // 1. Header background banner
-            paint.color = Color.parseColor("#0F172A") // Deep Slate/Navy
+            paint.color = "#0F172A".toColorInt() // Deep Slate/Navy
             canvas.drawRect(0f, 0f, pageWidth.toFloat(), 120f, paint)
 
             // Workshop Name
@@ -52,7 +53,7 @@ object PdfReceiptGenerator {
             // Workshop details
             paint.textSize = 10f
             paint.isFakeBoldText = false
-            paint.color = Color.parseColor("#94A3B8") // Light slate
+            paint.color = "#94A3B8".toColorInt() // Light slate
             var headerY = 56f
             if (config.technicianName.isNotBlank()) {
                 canvas.drawText("Técnico Especialista: ${config.technicianName}", 28f, headerY, paint)
@@ -71,7 +72,7 @@ object PdfReceiptGenerator {
             }
 
             // Order Number Badge in header right
-            paint.color = Color.parseColor("#0284C7") // Electric Blue
+            paint.color = "#0284C7".toColorInt() // Electric Blue
             val badgeRect = RectF(pageWidth - 210f, 25f, pageWidth - 28f, 75f)
             canvas.drawRoundRect(badgeRect, 8f, 8f, paint)
             paint.color = Color.WHITE
@@ -85,10 +86,10 @@ object PdfReceiptGenerator {
 
             // Warranty Notice Banner if warranty order
             if (order.isWarrantyOrder) {
-                paint.color = Color.parseColor("#FEF3C7") // Warm Amber
+                paint.color = "#FEF3C7".toColorInt() // Warm Amber
                 val warnRect = RectF(28f, currentY, pageWidth - 28f, currentY + 28f)
                 canvas.drawRoundRect(warnRect, 6f, 6f, paint)
-                paint.color = Color.parseColor("#92400E")
+                paint.color = "#92400E".toColorInt()
                 paint.textSize = 10f
                 paint.isFakeBoldText = true
                 canvas.drawText("★ ORDEN DE GARANTÍA (Costo de Garantía: $currency ${String.format(Locale.US, "%.2f", order.warrantyCost)})", 40f, currentY + 18f, paint)
@@ -97,35 +98,35 @@ object PdfReceiptGenerator {
 
             // 2. Client and Device Section (Two columns)
             // Left Column: Client Info
-            paint.color = Color.parseColor("#F1F5F9") // Light gray container
+            paint.color = "#F1F5F9".toColorInt() // Light gray container
             val clientRect = RectF(28f, currentY, (pageWidth / 2f) - 8f, currentY + 95f)
             canvas.drawRoundRect(clientRect, 6f, 6f, paint)
 
-            paint.color = Color.parseColor("#0F172A")
+            paint.color = "#0F172A".toColorInt()
             paint.textSize = 11f
             paint.isFakeBoldText = true
             canvas.drawText("DATOS DEL CLIENTE", 38f, currentY + 20f, paint)
 
             paint.textSize = 9.5f
             paint.isFakeBoldText = false
-            paint.color = Color.parseColor("#334155")
+            paint.color = "#334155".toColorInt()
             canvas.drawText("Nombre: ${order.clientName}", 38f, currentY + 40f, paint)
             canvas.drawText("Teléfono / WhatsApp: ${order.clientPhone.ifBlank { "No registrado" }}", 38f, currentY + 58f, paint)
             canvas.drawText("Fecha de Ingreso: $dateStr", 38f, currentY + 76f, paint)
 
             // Right Column: Device Info
             val deviceRect = RectF((pageWidth / 2f) + 8f, currentY, pageWidth - 28f, currentY + 95f)
-            paint.color = Color.parseColor("#F1F5F9")
+            paint.color = "#F1F5F9".toColorInt()
             canvas.drawRoundRect(deviceRect, 6f, 6f, paint)
 
-            paint.color = Color.parseColor("#0F172A")
+            paint.color = "#0F172A".toColorInt()
             paint.textSize = 11f
             paint.isFakeBoldText = true
             canvas.drawText("DATOS DEL DISPOSITIVO", (pageWidth / 2f) + 18f, currentY + 20f, paint)
 
             paint.textSize = 9.5f
             paint.isFakeBoldText = false
-            paint.color = Color.parseColor("#334155")
+            paint.color = "#334155".toColorInt()
             canvas.drawText("Equipo: ${order.deviceBrand} ${order.deviceModel}", (pageWidth / 2f) + 18f, currentY + 38f, paint)
             val imeiText = if (order.imei2.isNotBlank()) {
                 "IMEI 1: ${order.imeiOrSerial.ifBlank { "N/A" }} | IMEI 2: ${order.imei2}"
@@ -145,26 +146,26 @@ object PdfReceiptGenerator {
             currentY += 105f
 
             // 3. Issue Reported & Technical Diagnosis Box
-            paint.color = Color.parseColor("#F8FAFC")
+            paint.color = "#F8FAFC".toColorInt()
             val issueRect = RectF(28f, currentY, pageWidth - 28f, currentY + 80f)
             canvas.drawRoundRect(issueRect, 6f, 6f, paint)
 
-            paint.color = Color.parseColor("#0F172A")
+            paint.color = "#0F172A".toColorInt()
             paint.textSize = 10.5f
             paint.isFakeBoldText = true
             canvas.drawText("PROBLEMA REPORTADO POR EL CLIENTE:", 38f, currentY + 20f, paint)
             paint.textSize = 9.5f
             paint.isFakeBoldText = false
-            paint.color = Color.parseColor("#475569")
+            paint.color = "#475569".toColorInt()
             canvas.drawText(order.reportedIssue.take(80), 38f, currentY + 36f, paint)
 
-            paint.color = Color.parseColor("#0F172A")
+            paint.color = "#0F172A".toColorInt()
             paint.textSize = 10.5f
             paint.isFakeBoldText = true
             canvas.drawText("DIAGNÓSTICO TÉCNICO / TRABAJO REALIZADO:", 38f, currentY + 56f, paint)
             paint.textSize = 9.5f
             paint.isFakeBoldText = false
-            paint.color = Color.parseColor("#475569")
+            paint.color = "#475569".toColorInt()
             val diagText = order.repairDiagnosis.ifBlank {
                 if (order.repairOutcome == "EXITOSA") "Reparación completada satisfactoriamente con pruebas operativas."
                 else "Diagnóstico en proceso o no completado."
@@ -174,16 +175,16 @@ object PdfReceiptGenerator {
             currentY += 92f
 
             // 4. Parts / Spare parts Table
-            paint.color = Color.parseColor("#0F172A")
+            paint.color = "#0F172A".toColorInt()
             paint.textSize = 11f
             paint.isFakeBoldText = true
             canvas.drawText("DETALLE DE REPUESTOS Y MANO DE OBRA", 28f, currentY + 14f, paint)
             currentY += 22f
 
             // Table Header
-            paint.color = Color.parseColor("#E2E8F0")
+            paint.color = "#E2E8F0".toColorInt()
             canvas.drawRect(28f, currentY, pageWidth - 28f, currentY + 22f, paint)
-            paint.color = Color.parseColor("#1E293B")
+            paint.color = "#1E293B".toColorInt()
             paint.textSize = 9.5f
             paint.isFakeBoldText = true
             canvas.drawText("Cant.", 36f, currentY + 15f, paint)
@@ -196,19 +197,19 @@ object PdfReceiptGenerator {
             paint.textSize = 9f
 
             if (parts.isEmpty()) {
-                paint.color = Color.parseColor("#64748B")
+                paint.color = "#64748B".toColorInt()
                 canvas.drawText("No se cargaron repuestos adicionales para esta orden.", 36f, currentY + 16f, paint)
                 currentY += 22f
             } else {
                 for (p in parts) {
-                    paint.color = Color.parseColor("#334155")
+                    paint.color = "#334155".toColorInt()
                     canvas.drawText("${p.quantity}", 36f, currentY + 16f, paint)
                     canvas.drawText(p.partName.take(45), 75f, currentY + 16f, paint)
                     canvas.drawText("$currency ${String.format(Locale.US, "%.2f", p.unitPrice)}", pageWidth - 145f, currentY + 16f, paint)
                     canvas.drawText("$currency ${String.format(Locale.US, "%.2f", p.unitPrice * p.quantity)}", pageWidth - 70f, currentY + 16f, paint)
 
                     // Light line separator
-                    paint.color = Color.parseColor("#F1F5F9")
+                    paint.color = "#F1F5F9".toColorInt()
                     canvas.drawLine(28f, currentY + 20f, pageWidth - 28f, currentY + 20f, paint)
                     currentY += 20f
                 }
@@ -218,12 +219,12 @@ object PdfReceiptGenerator {
 
             // 5. Totals Box (Right aligned)
             val totalsBoxLeft = pageWidth - 250f
-            paint.color = Color.parseColor("#F8FAFC")
+            paint.color = "#F8FAFC".toColorInt()
             val totalRect = RectF(totalsBoxLeft, currentY, pageWidth - 28f, currentY + 95f)
             canvas.drawRoundRect(totalRect, 6f, 6f, paint)
 
             paint.textSize = 9.5f
-            paint.color = Color.parseColor("#475569")
+            paint.color = "#475569".toColorInt()
             paint.isFakeBoldText = false
             canvas.drawText("Presupuesto Estimado:", totalsBoxLeft + 12f, currentY + 20f, paint)
             canvas.drawText("$currency ${String.format(Locale.US, "%.2f", order.budgetEstimated)}", pageWidth - 80f, currentY + 20f, paint)
@@ -235,7 +236,7 @@ object PdfReceiptGenerator {
             canvas.drawText("$currency ${String.format(Locale.US, "%.2f", order.partsTotalPrice)}", pageWidth - 80f, currentY + 54f, paint)
 
             // Highlighted final total
-            paint.color = Color.parseColor("#0284C7")
+            paint.color = "#0284C7".toColorInt()
             val finalTotalBar = RectF(totalsBoxLeft, currentY + 66f, pageWidth - 28f, currentY + 95f)
             canvas.drawRoundRect(finalTotalBar, 4f, 4f, paint)
 
@@ -248,33 +249,46 @@ object PdfReceiptGenerator {
             currentY += 115f
 
             // 6. Warranty Terms / Conditions
-            paint.color = Color.parseColor("#F1F5F9")
-            val policyRect = RectF(28f, currentY, pageWidth - 28f, currentY + 50f)
-            canvas.drawRoundRect(policyRect, 6f, 6f, paint)
+            if (config.showWarrantyTerms && config.receiptFooter.isNotBlank()) {
+                val policyText = config.receiptFooter.trim()
+                val isMultiLine = policyText.length > 100
+                val boxHeight = if (isMultiLine) 60f else 50f
 
-            paint.color = Color.parseColor("#0F172A")
-            paint.textSize = 9f
-            paint.isFakeBoldText = true
-            canvas.drawText("TÉRMINOS Y CONDICIONES DE GARANTÍA:", 38f, currentY + 16f, paint)
+                paint.color = "#F1F5F9".toColorInt()
+                val policyRect = RectF(28f, currentY, pageWidth - 28f, currentY + boxHeight)
+                canvas.drawRoundRect(policyRect, 6f, 6f, paint)
 
-            paint.isFakeBoldText = false
-            paint.color = Color.parseColor("#475569")
-            paint.textSize = 8.5f
-            val policyText = config.receiptFooter.ifBlank {
-                "Garantía de 30 días en servicio técnico y repuestos instalados por defectos de fábrica. No cubre humedad ni golpes posteriores."
+                paint.color = "#0F172A".toColorInt()
+                paint.textSize = 9f
+                paint.isFakeBoldText = true
+                canvas.drawText("TÉRMINOS Y CONDICIONES DE GARANTÍA:", 38f, currentY + 16f, paint)
+
+                paint.isFakeBoldText = false
+                paint.color = "#475569".toColorInt()
+                paint.textSize = 8.5f
+
+                if (isMultiLine) {
+                    val line1 = policyText.take(100)
+                    val line2 = policyText.drop(100).take(105)
+                    canvas.drawText(line1, 38f, currentY + 32f, paint)
+                    canvas.drawText(line2, 38f, currentY + 46f, paint)
+                    currentY += 88f
+                } else {
+                    canvas.drawText(policyText, 38f, currentY + 32f, paint)
+                    currentY += 80f
+                }
+            } else {
+                currentY += 45f
             }
-            canvas.drawText(policyText.take(110), 38f, currentY + 32f, paint)
-
-            currentY += 80f
 
             // 7. Signature placeholders
-            paint.color = Color.parseColor("#94A3B8")
+            paint.color = "#94A3B8".toColorInt()
             paint.strokeWidth = 1f
             // Left signature: Technician
             canvas.drawLine(40f, currentY, (pageWidth / 2f) - 40f, currentY, paint)
             paint.textSize = 9f
             paint.isFakeBoldText = false
-            paint.color = Color.parseColor("#475569")
+            paint.color = "#475569".toColorInt()
             canvas.drawText("Firma del Técnico Responsable", 60f, currentY + 15f, paint)
 
             // Right signature: Customer
