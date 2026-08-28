@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/app_logo_techfix"
+        android:drawable="@drawable/img_diode_neon"
         android:gravity="center" />
 </layer-list>
